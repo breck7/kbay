@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://kbay.breck.lol/sitemap.txt

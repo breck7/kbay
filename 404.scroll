@@ -1,0 +1,26 @@
+buildHtml
+title Page not found
+
+
+settings.scroll
+
+
+metaTags
+theme gazette
+homeButton
+ /index.html
+editButton
+
+container 800px
+printTitle
+
+/.gazette.css
+/.scroll.css
+br 2
+center
+Sorry, we cannot find that page.
+helpfulNotFound /sitemap.txt
+If you think there's a bug, please open an issue or send a pull request at https://github.com/breck7/kbay
+
+
+pageFooter.scroll

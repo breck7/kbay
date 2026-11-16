@@ -1,0 +1,166 @@
+// kbay. Sell your stuff for cash. Neighbors only.
+// Build with: scroll build
+// Add a listing: put a video in listings/ named "Title - FirstName - Location - Price - Phone.mp4" and send a pull request.
+// Shrink videos for slow bandwidth (480p, CRF 28, mono AAC 64k, faststart):
+//   ffmpeg -i input.mp4 -vf "scale=-2:480" -c:v libx264 -crf 28 -preset medium -pix_fmt yuv420p -c:a aac -ac 1 -b:a 64k -movflags +faststart "listings/Kids Bike - Breck - Wahiawa - 40 - 808-555-0123.mp4"
+
+listingsParser
+ description Print video cards from files in listings/.
+ extends abstractScrollParser
+ cueFromId
+ javascript
+  buildHtml() {
+   if (!this.isNodeJs()) return this.emptyHtml()
+   const fs = require("fs")
+   const path = require("path")
+   const dir = path.join(this.root.folderPath, "listings")
+   if (!fs.existsSync(dir)) return this.emptyHtml()
+   const files = fs.readdirSync(dir).filter(name => /\.(mp4|mov|webm|m4v)$/i.test(name) && !name.startsWith(".")).sort((a, b) => a.localeCompare(b, undefined, {sensitivity: "base"}))
+   if (!files.length) return this.emptyHtml()
+   return `<section class="band listings-band" id="listings"><h2>Listings</h2><div class="listings">${files.map(name => this.cardHtml(name)).join("")}</div></section>`
+  }
+  emptyHtml() {
+   return `<section class="band listings-band" id="listings"><h2>Listings</h2><p class="empty-listings">Nothing listed yet. If you have something a neighbor might need, add a video and send a pull request.</p></section>`
+  }
+  escape(value) {
+   return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+  }
+  parseName(filename) {
+   const base = filename.replace(/\.[^.]+$/, "")
+   const parts = base.split(" - ")
+   if (parts.length < 5) return { ok: false, filename, title: base }
+   const phone = parts.pop()
+   const price = parts.pop()
+   const location = parts.pop()
+   const firstName = parts.pop()
+   return { ok: true, filename, title: parts.join(" - "), firstName, location, price, phone }
+  }
+  formatPrice(raw) {
+   const compact = String(raw).replace(/\s+/g, "")
+   const obo = /obo$/i.test(compact)
+   const amount = compact.replace(/obo$/i, "").replace(/[$,]/g, "")
+   const number = Number(amount)
+   const display = Number.isFinite(number) ? (Number.isInteger(number) ? "$" + number.toLocaleString("en-US") : "$" + number.toFixed(2)) : this.escape(raw)
+   return obo ? display + " OBO" : display
+  }
+  formatPhone(raw) {
+   const digits = String(raw).replace(/\D/g, "")
+   let display = String(raw).trim()
+   let telDigits = digits
+   if (digits.length === 10) {
+    display = digits.slice(0, 3) + "-" + digits.slice(3, 6) + "-" + digits.slice(6)
+    telDigits = "1" + digits
+   } else if (digits.length === 11 && digits[0] === "1") {
+    display = digits.slice(1, 4) + "-" + digits.slice(4, 7) + "-" + digits.slice(7)
+   }
+   return { display, href: "tel:+" + telDigits, sms: "sms:+" + telDigits }
+  }
+  cardHtml(filename) {
+   const parsed = this.parseName(filename)
+   const src = this.escape("listings/" + filename)
+   if (!parsed.ok) return `<article class="listing"><video src="${src}" preload="metadata" controls playsinline></video><div class="meta"><h3>${this.escape(parsed.title)}</h3><p class="note">This filename needs the form Title - FirstName - Location - Price - Phone.mp4</p></div></article>`
+   const phone = this.formatPhone(parsed.phone)
+   return `<article class="listing"><video src="${src}" preload="metadata" controls playsinline></video><div class="meta"><h3>${this.escape(parsed.title)}</h3><p class="price">${this.formatPrice(parsed.price)}</p><p class="who">${this.escape(parsed.firstName)} · ${this.escape(parsed.location)}</p><p class="phone"><a href="${this.escape(phone.href)}">Call ${this.escape(phone.display)}</a> · <a href="${this.escape(phone.sms)}">Text</a></p></div></article>`
+  }
+
+buildHtml
+permalink index.html
+title kbay
+description Sell your stuff for cash. Neighbors only. Cash only, in-person pickup, no shipping.
+keywords kbay, sell, cash, neighbors, N2N, in person, no shipping, kindness, Hawaii
+baseUrl https://kbay.breck.lol/
+canonicalUrl https://kbay.breck.lol/
+editBaseUrl https://github.com/breck7/kbay/blob/main/
+openGraphImage og.png
+favicon favicon.svg
+metaTags
+
+css
+ :root { --paper: #f6efe4; --ink: #2c2118; --muted: #6e6256; --line: rgba(44, 33, 24, .16); --kind: #b44a28; --gold: #c9a36a; --card: #fffaf3; }
+ * { box-sizing: border-box; }
+ html { background: var(--paper); color: var(--ink); }
+ body { margin: 0 auto; max-width: 1080px; padding: 0 28px; font-family: Georgia, "Times New Roman", serif; line-height: 1.5; }
+ a { color: var(--kind); }
+ a:hover, a:focus-visible { color: var(--ink); }
+ .site-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0 18px; border-bottom: 1px solid var(--line); }
+ .mark { text-decoration: none; color: var(--kind); font-weight: 700; font-size: 22px; letter-spacing: -.03em; }
+ .site-header nav { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+ .site-header nav a { text-decoration: none; color: var(--muted); text-transform: uppercase; font: 700 10px/1 Arial, sans-serif; letter-spacing: .13em; }
+ .site-header nav a:hover, .site-header nav a:focus-visible { color: var(--ink); text-decoration: underline; }
+ .hero { padding: 80px 0 72px; }
+ .eyebrow { margin: 0 0 22px; color: var(--kind); text-transform: uppercase; font: 700 10px/1 Arial, sans-serif; letter-spacing: .2em; }
+ h1 { margin: 0 0 16px; font-size: clamp(56px, 11vw, 104px); font-weight: 400; line-height: .9; letter-spacing: -.06em; color: var(--ink); }
+ .lede { max-width: 620px; margin: 0 0 14px; font-size: clamp(22px, 3vw, 30px); line-height: 1.25; }
+ .kindness { max-width: 620px; margin: 0; color: var(--muted); font-size: clamp(17px, 2vw, 20px); }
+ .band { padding: 56px 0; border-top: 1px solid var(--line); }
+ h2 { margin: 0 0 28px; font-size: clamp(26px, 4vw, 40px); font-weight: 400; letter-spacing: -.03em; }
+ .rules { display: grid; gap: 14px; }
+ @media (min-width: 720px) { .rules { grid-template-columns: 1fr 1fr; } }
+ .rule { margin: 0; padding: 18px 20px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; font-size: 17px; }
+ .rule strong { display: block; margin: 0 0 4px; font-size: 18px; letter-spacing: -.02em; }
+ .listings { display: grid; gap: 22px; }
+ @media (min-width: 800px) { .listings { grid-template-columns: 1fr 1fr; } }
+ .listing { overflow: hidden; background: var(--card); border: 1px solid var(--line); border-radius: 16px; }
+ .listing video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #1a1612; object-fit: contain; }
+ .listing .meta { padding: 16px 18px 18px; }
+ .listing h3 { margin: 0 0 6px; font-size: 22px; font-weight: 400; letter-spacing: -.02em; }
+ .price { margin: 0 0 8px; color: var(--kind); font-size: 22px; font-weight: 700; font-family: Georgia, "Times New Roman", serif; }
+ .who, .note { margin: 0 0 8px; color: var(--muted); }
+ .phone { margin: 0; }
+ .phone a { text-decoration: none; font: 700 13px/1.4 Arial, sans-serif; letter-spacing: .02em; }
+ .empty-listings { max-width: 620px; margin: 0; padding: 36px 28px; border: 1px dashed var(--line); border-radius: 16px; color: var(--muted); font-size: 18px; background: var(--card); }
+ .how p { max-width: 640px; margin: 0 0 16px; font-size: clamp(17px, 2vw, 20px); line-height: 1.55; }
+ .how p:last-child { margin-bottom: 0; }
+ .filename { display: block; margin: 10px 0 0; padding: 12px 14px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; font: 15px/1.45 ui-monospace, Menlo, monospace; overflow-wrap: anywhere; color: var(--ink); }
+ .how pre { max-width: 640px; margin: 12px 0 0; padding: 14px 16px; overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; font: 13px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
+ .site-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 26px 0 40px; border-top: 1px solid var(--line); color: var(--muted); font: 12px/1.5 Arial, sans-serif; }
+ .site-footer p { margin: 0; }
+ .site-footer a { color: var(--muted); }
+ a:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
+ @media (max-width: 560px) { body { padding: 0 18px; } .hero { padding: 48px 0 44px; } .band { padding: 40px 0; } }
+
+html
+ <header class="site-header">
+  <a class="mark" href="index.html">kbay</a>
+  <nav>
+   <a href="#rules">The rules</a>
+   <a href="#listings">Listings</a>
+   <a href="#how">List something</a>
+  </nav>
+ </header>
+ <main>
+  <section class="hero">
+   <p class="eyebrow">Neighbor to neighbor</p>
+   <h1>kbay</h1>
+   <p class="lede">Sell your stuff for cash.</p>
+   <p class="kindness">The K stands for Kindness.</p>
+  </section>
+  <section class="band" id="rules">
+   <h2>The rules</h2>
+   <div class="rules">
+    <p class="rule"><strong>Cash only</strong> Cash is the only payment method. No apps, no cards, no trades.</p>
+    <p class="rule"><strong>In-person pickup only</strong> Meet your neighbors and pick things up in person. No shipping.</p>
+    <p class="rule"><strong>N2N</strong> Neighbor to neighbor only. This is for friends and neighbors, not a store.</p>
+    <p class="rule"><strong>No anonymous selling</strong> Every listing shows the seller’s first name and phone number.</p>
+   </div>
+  </section>
+
+listings
+
+html
+  <section class="band how" id="how">
+   <h2>List something</h2>
+   <p>Have something a neighbor might need? Film a short video, add the file to the <code>listings/</code> folder, and send a <a href="https://github.com/breck7/kbay">pull request</a>. Listings are video only.</p>
+   <p>Name the file like this, in this order, with a space-hyphen-space between each part:</p>
+   <p><code class="filename">Title - FirstName - Location - Price - Phone.mp4</code></p>
+   <p>Example:</p>
+   <p><code class="filename">Kids Bike - Breck - Wahiawa - 40 - 808-555-0123.mp4</code></p>
+   <p>The title can have spaces. Add <code>obo</code> after the price if you will take a lower cash offer, like <code>40obo</code>. The phone number can be written with or without dashes. Use your real first name and a number friends can call or text. There is no anonymous selling.</p>
+   <p>Please shrink the video first so neighbors on slow connections can watch it. Aim for 480p, a CRF of about 28, and mono AAC at 64k, with faststart:</p>
+   <pre>ffmpeg -i input.mp4 -vf "scale=-2:480" -c:v libx264 -crf 28 -preset medium -pix_fmt yuv420p -c:a aac -ac 1 -b:a 64k -movflags +faststart "listings/Kids Bike - Breck - Wahiawa - 40 - 808-555-0123.mp4"</pre>
+  </section>
+ </main>
+ <footer class="site-footer">
+  <p>kbay · neighbor to neighbor · cash only · no shipping</p>
+  <p><a href="https://github.com/breck7/kbay">Send a pull request</a> · <a href="https://x.com/breckyunits">@breckyunits</a></p>
+ </footer>

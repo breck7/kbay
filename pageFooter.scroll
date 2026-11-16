@@ -1,0 +1,12 @@
+importOnly
+
+html
+ <div class="pageFooter">
+
+theScrollButton
+editButton
+html
+ <a href="https://x.com/breckyunits">@breckyunits</a> · <a href="https://github.com/breck7/kbay">github.com/breck7/kbay</a>
+
+html
+ </div>

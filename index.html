@@ -53,7 +53,8 @@ h2 { margin: 0 0 28px; font-size: clamp(26px, 4vw, 40px); font-weight: 400; lett
 .listing h3 .permalink { margin-left: .3em; color: var(--muted); font: 700 15px/1 Arial, sans-serif; letter-spacing: 0; }
 .listing h3 a:hover .permalink, .listing h3 a:focus-visible .permalink { color: var(--kind); }
 .price { margin: 0 0 8px; color: var(--kind); font-size: 22px; font-weight: 700; font-family: Georgia, "Times New Roman", serif; }
-.who, .note { margin: 0 0 8px; color: var(--muted); }
+.who, .note, .when { margin: 0 0 8px; color: var(--muted); }
+.when { font: 12px/1.4 Arial, sans-serif; }
 .phone { margin: 0; }
 .phone a { text-decoration: none; font: 700 13px/1.4 Arial, sans-serif; letter-spacing: .02em; }
 .empty-listings { max-width: 620px; margin: 0; padding: 36px 28px; border: 1px dashed var(--line); border-radius: 16px; color: var(--muted); font-size: 18px; background: var(--card); }
@@ -90,7 +91,7 @@ a:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
    <p class="rule"><strong>No anonymous selling</strong> Every listing shows the seller’s first name and phone number.</p>
   </div>
  </section>
-<section class="band listings-band" id="listings"><h2>Listings</h2><div class="listings"><article class="listing" id="probably-broken-whirlpool-microwave"><video src="listings/Probably Broken Whirlpool Microwave - Breck - Wahiawa - 6900obo - 8087241776.mp4" preload="metadata" controls playsinline></video><div class="meta"><h3><a href="#probably-broken-whirlpool-microwave">Probably Broken Whirlpool Microwave <span class="permalink" aria-hidden="true">#</span></a></h3><p class="price">$6,900 OBO</p><p class="who">Breck · Wahiawa</p><p class="phone"><a href="tel:+18087241776">Call 808-724-1776</a> · <a href="sms:+18087241776">Text</a></p></div></article><article class="listing" id="vivatar-instant-print-camera"><video src="listings/Vivatar Instant Print Camera - Breck - Wahiawa - 20obo - 8087241776.mp4" preload="metadata" controls playsinline></video><div class="meta"><h3><a href="#vivatar-instant-print-camera">Vivatar Instant Print Camera <span class="permalink" aria-hidden="true">#</span></a></h3><p class="price">$20 OBO</p><p class="who">Breck · Wahiawa</p><p class="phone"><a href="tel:+18087241776">Call 808-724-1776</a> · <a href="sms:+18087241776">Text</a></p></div></article></div></section>
+<section class="band listings-band" id="listings"><h2>Listings</h2><div class="listings"><article class="listing" id="probably-broken-whirlpool-microwave"><video src="listings/Probably Broken Whirlpool Microwave - Breck - Wahiawa - 6900obo - 8087241776.mp4" preload="metadata" controls playsinline></video><div class="meta"><h3><a href="#probably-broken-whirlpool-microwave">Probably Broken Whirlpool Microwave <span class="permalink" aria-hidden="true">#</span></a></h3><p class="price">$6,900 OBO</p><p class="who">Breck · Wahiawa</p><p class="when"><time class="listed" datetime="2026-11-16T19:27:31.512Z" title="Nov 16, 2026, 9:27 AM">Nov 16, 2026</time></p><p class="phone"><a href="tel:+18087241776">Call 808-724-1776</a> · <a href="sms:+18087241776">Text</a></p></div></article><article class="listing" id="vivatar-instant-print-camera"><video src="listings/Vivatar Instant Print Camera - Breck - Wahiawa - 20obo - 8087241776.mp4" preload="metadata" controls playsinline></video><div class="meta"><h3><a href="#vivatar-instant-print-camera">Vivatar Instant Print Camera <span class="permalink" aria-hidden="true">#</span></a></h3><p class="price">$20 OBO</p><p class="who">Breck · Wahiawa</p><p class="when"><time class="listed" datetime="2026-11-17T17:17:51.788Z" title="Nov 17, 2026, 7:17 AM">Nov 17, 2026</time></p><p class="phone"><a href="tel:+18087241776">Call 808-724-1776</a> · <a href="sms:+18087241776">Text</a></p></div></article></div></section>
  <section class="band how" id="how">
   <h2>List something</h2>
   <p>Have something a neighbor might need? Film a short video, add the file to the <code>listings/</code> folder, and send a <a href="https://github.com/breck7/kbay">pull request</a>. Listings are video only.</p>
@@ -107,5 +108,27 @@ a:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
  <p>kbay · neighbor to neighbor · cash only · no shipping</p>
  <p><a href="https://github.com/breck7/kbay">Send a pull request</a> · <a href="https://x.com/breckyunits">@breckyunits</a></p>
 </footer>
+<script>
+ (function () {
+  const units = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]]
+  const ago = ms => {
+   let seconds = Math.floor((Date.now() - ms) / 1000)
+   if (seconds < 60) return "just now"
+   for (const [name, size] of units) {
+    if (seconds >= size) {
+     const n = Math.floor(seconds / size)
+     return n + " " + name + (n === 1 ? "" : "s") + " ago"
+    }
+   }
+   return "just now"
+  }
+  document.querySelectorAll("time.listed").forEach(el => {
+   const date = new Date(el.getAttribute("datetime"))
+   if (isNaN(date)) return
+   el.title = date.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+   el.textContent = ago(date.getTime())
+  })
+ })()
+</script>
 </body>
 </html>

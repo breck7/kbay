@@ -2,6 +2,7 @@
 // Build with: scroll build
 // Add a listing: put a video in listings/ named "Title - FirstName - Location - Price - Phone.mp4" and send a pull request.
 // Each listing gets a #title-slug permalink, e.g. https://kbay.breck.lol/#kids-bike
+// Listing time is the video file's mtime. GitHub Actions checkout resets mtimes, so the CI build uses the file's last git commit time.
 // Shrink videos for slow bandwidth (480p, CRF 28, mono AAC 64k, faststart):
 //   ffmpeg -i input.mp4 -vf "scale=-2:480" -c:v libx264 -crf 28 -preset medium -pix_fmt yuv420p -c:a aac -ac 1 -b:a 64k -movflags +faststart "listings/Kids Bike - Breck - Wahiawa - 40 - 808-555-0123.mp4"
 
@@ -19,7 +20,7 @@ listingsParser
    const files = fs.readdirSync(dir).filter(name => /\.(mp4|mov|webm|m4v)$/i.test(name) && !name.startsWith(".")).sort((a, b) => a.localeCompare(b, undefined, {sensitivity: "base"}))
    if (!files.length) return this.emptyHtml()
    const used = new Set(["listings", "rules", "how"])
-   return `<section class="band listings-band" id="listings"><h2>Listings</h2><div class="listings">${files.map(name => this.cardHtml(name, used)).join("")}</div></section>`
+   return `<section class="band listings-band" id="listings"><h2>Listings</h2><div class="listings">${files.map(name => this.cardHtml(name, used, dir)).join("")}</div></section>`
   }
   emptyHtml() {
    return `<section class="band listings-band" id="listings"><h2>Listings</h2><p class="empty-listings">Nothing listed yet. If you have something a neighbor might need, add a video and send a pull request.</p></section>`
@@ -75,14 +76,34 @@ listingsParser
    const href = "#" + this.escape(slug)
    return `<h3><a href="${href}">${this.escape(title)} <span class="permalink" aria-hidden="true">#</span></a></h3>`
   }
-  cardHtml(filename, used) {
+  fileTime(filepath) {
+   const fs = require("fs")
+   const mtime = fs.statSync(filepath).mtime
+   if (!process.env.GITHUB_ACTIONS) return mtime
+   try {
+    const { execFileSync } = require("child_process")
+    const iso = execFileSync("git", ["log", "-1", "--format=%cI", "--", filepath], { encoding: "utf8", cwd: this.root.folderPath, timeout: 5000 }).trim()
+    if (iso) return new Date(iso)
+   } catch (err) {}
+   return mtime
+  }
+  timeHtml(filepath) {
+   const date = this.fileTime(filepath)
+   const iso = date.toISOString()
+   const opts = { timeZone: "Pacific/Honolulu" }
+   const fallback = date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", ...opts })
+   const title = date.toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", ...opts })
+   return `<p class="when"><time class="listed" datetime="${iso}" title="${this.escape(title)}">${this.escape(fallback)}</time></p>`
+  }
+  cardHtml(filename, used, dir) {
    const parsed = this.parseName(filename)
    const src = this.escape("listings/" + filename)
    const slug = this.uniqueSlug(parsed.title, used)
    const heading = this.headingHtml(parsed.title, slug)
-   if (!parsed.ok) return `<article class="listing" id="${this.escape(slug)}"><video src="${src}" preload="metadata" controls playsinline></video><div class="meta">${heading}<p class="note">This filename needs the form Title - FirstName - Location - Price - Phone.mp4</p></div></article>`
+   const when = this.timeHtml(require("path").join(dir, filename))
+   if (!parsed.ok) return `<article class="listing" id="${this.escape(slug)}"><video src="${src}" preload="metadata" controls playsinline></video><div class="meta">${heading}${when}<p class="note">This filename needs the form Title - FirstName - Location - Price - Phone.mp4</p></div></article>`
    const phone = this.formatPhone(parsed.phone)
-   return `<article class="listing" id="${this.escape(slug)}"><video src="${src}" preload="metadata" controls playsinline></video><div class="meta">${heading}<p class="price">${this.formatPrice(parsed.price)}</p><p class="who">${this.escape(parsed.firstName)} · ${this.escape(parsed.location)}</p><p class="phone"><a href="${this.escape(phone.href)}">Call ${this.escape(phone.display)}</a> · <a href="${this.escape(phone.sms)}">Text</a></p></div></article>`
+   return `<article class="listing" id="${this.escape(slug)}"><video src="${src}" preload="metadata" controls playsinline></video><div class="meta">${heading}<p class="price">${this.formatPrice(parsed.price)}</p><p class="who">${this.escape(parsed.firstName)} · ${this.escape(parsed.location)}</p>${when}<p class="phone"><a href="${this.escape(phone.href)}">Call ${this.escape(phone.display)}</a> · <a href="${this.escape(phone.sms)}">Text</a></p></div></article>`
   }
 
 buildHtml
@@ -132,7 +153,8 @@ css
  .listing h3 .permalink { margin-left: .3em; color: var(--muted); font: 700 15px/1 Arial, sans-serif; letter-spacing: 0; }
  .listing h3 a:hover .permalink, .listing h3 a:focus-visible .permalink { color: var(--kind); }
  .price { margin: 0 0 8px; color: var(--kind); font-size: 22px; font-weight: 700; font-family: Georgia, "Times New Roman", serif; }
- .who, .note { margin: 0 0 8px; color: var(--muted); }
+ .who, .note, .when { margin: 0 0 8px; color: var(--muted); }
+ .when { font: 12px/1.4 Arial, sans-serif; }
  .phone { margin: 0; }
  .phone a { text-decoration: none; font: 700 13px/1.4 Arial, sans-serif; letter-spacing: .02em; }
  .empty-listings { max-width: 620px; margin: 0; padding: 36px 28px; border: 1px dashed var(--line); border-radius: 16px; color: var(--muted); font-size: 18px; background: var(--card); }
@@ -191,3 +213,25 @@ html
   <p>kbay · neighbor to neighbor · cash only · no shipping</p>
   <p><a href="https://github.com/breck7/kbay">Send a pull request</a> · <a href="https://x.com/breckyunits">@breckyunits</a></p>
  </footer>
+ <script>
+  (function () {
+   const units = [["year", 31536000], ["month", 2592000], ["week", 604800], ["day", 86400], ["hour", 3600], ["minute", 60]]
+   const ago = ms => {
+    let seconds = Math.floor((Date.now() - ms) / 1000)
+    if (seconds < 60) return "just now"
+    for (const [name, size] of units) {
+     if (seconds >= size) {
+      const n = Math.floor(seconds / size)
+      return n + " " + name + (n === 1 ? "" : "s") + " ago"
+     }
+    }
+    return "just now"
+   }
+   document.querySelectorAll("time.listed").forEach(el => {
+    const date = new Date(el.getAttribute("datetime"))
+    if (isNaN(date)) return
+    el.title = date.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+    el.textContent = ago(date.getTime())
+   })
+  })()
+ </script>

@@ -1,6 +1,7 @@
 // kbay. Sell your stuff for cash. Neighbors only.
 // Build with: scroll build
 // Add a listing: put a video in listings/ named "Title - FirstName - Location - Price - Phone.mp4" and send a pull request.
+// Each listing gets a #title-slug permalink, e.g. https://kbay.breck.lol/#kids-bike
 // Shrink videos for slow bandwidth (480p, CRF 28, mono AAC 64k, faststart):
 //   ffmpeg -i input.mp4 -vf "scale=-2:480" -c:v libx264 -crf 28 -preset medium -pix_fmt yuv420p -c:a aac -ac 1 -b:a 64k -movflags +faststart "listings/Kids Bike - Breck - Wahiawa - 40 - 808-555-0123.mp4"
 
@@ -17,7 +18,8 @@ listingsParser
    if (!fs.existsSync(dir)) return this.emptyHtml()
    const files = fs.readdirSync(dir).filter(name => /\.(mp4|mov|webm|m4v)$/i.test(name) && !name.startsWith(".")).sort((a, b) => a.localeCompare(b, undefined, {sensitivity: "base"}))
    if (!files.length) return this.emptyHtml()
-   return `<section class="band listings-band" id="listings"><h2>Listings</h2><div class="listings">${files.map(name => this.cardHtml(name)).join("")}</div></section>`
+   const used = new Set(["listings", "rules", "how"])
+   return `<section class="band listings-band" id="listings"><h2>Listings</h2><div class="listings">${files.map(name => this.cardHtml(name, used)).join("")}</div></section>`
   }
   emptyHtml() {
    return `<section class="band listings-band" id="listings"><h2>Listings</h2><p class="empty-listings">Nothing listed yet. If you have something a neighbor might need, add a video and send a pull request.</p></section>`
@@ -55,12 +57,32 @@ listingsParser
    }
    return { display, href: "tel:+" + telDigits, sms: "sms:+" + telDigits }
   }
-  cardHtml(filename) {
+  slugify(value) {
+   const slug = String(value).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+   return slug || "listing"
+  }
+  uniqueSlug(value, used) {
+   let slug = this.slugify(value)
+   if (used.has(slug)) {
+    let n = 2
+    while (used.has(slug + "-" + n)) n++
+    slug = slug + "-" + n
+   }
+   used.add(slug)
+   return slug
+  }
+  headingHtml(title, slug) {
+   const href = "#" + this.escape(slug)
+   return `<h3><a href="${href}">${this.escape(title)} <span class="permalink" aria-hidden="true">#</span></a></h3>`
+  }
+  cardHtml(filename, used) {
    const parsed = this.parseName(filename)
    const src = this.escape("listings/" + filename)
-   if (!parsed.ok) return `<article class="listing"><video src="${src}" preload="metadata" controls playsinline></video><div class="meta"><h3>${this.escape(parsed.title)}</h3><p class="note">This filename needs the form Title - FirstName - Location - Price - Phone.mp4</p></div></article>`
+   const slug = this.uniqueSlug(parsed.title, used)
+   const heading = this.headingHtml(parsed.title, slug)
+   if (!parsed.ok) return `<article class="listing" id="${this.escape(slug)}"><video src="${src}" preload="metadata" controls playsinline></video><div class="meta">${heading}<p class="note">This filename needs the form Title - FirstName - Location - Price - Phone.mp4</p></div></article>`
    const phone = this.formatPhone(parsed.phone)
-   return `<article class="listing"><video src="${src}" preload="metadata" controls playsinline></video><div class="meta"><h3>${this.escape(parsed.title)}</h3><p class="price">${this.formatPrice(parsed.price)}</p><p class="who">${this.escape(parsed.firstName)} · ${this.escape(parsed.location)}</p><p class="phone"><a href="${this.escape(phone.href)}">Call ${this.escape(phone.display)}</a> · <a href="${this.escape(phone.sms)}">Text</a></p></div></article>`
+   return `<article class="listing" id="${this.escape(slug)}"><video src="${src}" preload="metadata" controls playsinline></video><div class="meta">${heading}<p class="price">${this.formatPrice(parsed.price)}</p><p class="who">${this.escape(parsed.firstName)} · ${this.escape(parsed.location)}</p><p class="phone"><a href="${this.escape(phone.href)}">Call ${this.escape(phone.display)}</a> · <a href="${this.escape(phone.sms)}">Text</a></p></div></article>`
   }
 
 buildHtml
@@ -100,10 +122,15 @@ css
  .rule strong { display: block; margin: 0 0 4px; font-size: 18px; letter-spacing: -.02em; }
  .listings { display: grid; gap: 22px; }
  @media (min-width: 800px) { .listings { grid-template-columns: 1fr 1fr; } }
- .listing { overflow: hidden; background: var(--card); border: 1px solid var(--line); border-radius: 16px; }
+ .listing { overflow: hidden; background: var(--card); border: 1px solid var(--line); border-radius: 16px; scroll-margin-top: 20px; }
+ .listing:target { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold); }
  .listing video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #1a1612; object-fit: contain; }
  .listing .meta { padding: 16px 18px 18px; }
  .listing h3 { margin: 0 0 6px; font-size: 22px; font-weight: 400; letter-spacing: -.02em; }
+ .listing h3 a { color: inherit; text-decoration: none; }
+ .listing h3 a:hover, .listing h3 a:focus-visible { color: inherit; }
+ .listing h3 .permalink { margin-left: .3em; color: var(--muted); font: 700 15px/1 Arial, sans-serif; letter-spacing: 0; }
+ .listing h3 a:hover .permalink, .listing h3 a:focus-visible .permalink { color: var(--kind); }
  .price { margin: 0 0 8px; color: var(--kind); font-size: 22px; font-weight: 700; font-family: Georgia, "Times New Roman", serif; }
  .who, .note { margin: 0 0 8px; color: var(--muted); }
  .phone { margin: 0; }
